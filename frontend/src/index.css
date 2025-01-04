@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body{
+    background-color: #FFFDEC;
+    width: 100vw;
+    overflow-x: hidden;
+}
+.animatedButton{
+    animation-duration: 10000ms;
+}
+
