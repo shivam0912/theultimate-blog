@@ -41,6 +41,9 @@ app.use((error,req,res,next)=>{
         stack:error.stack
     })
 })
+app.get('/', (req, res) => {
+    res.send('API is running...');
+});
 
 app.listen(env.process.PORT,()=>{
     connectDB();
