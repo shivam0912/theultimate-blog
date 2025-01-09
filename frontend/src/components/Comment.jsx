@@ -1,32 +1,68 @@
-import Image from './Image'
+    import { format } from "timeago.js";
+    import Image from "./Image";
+    import { useAuth, useUser } from "@clerk/clerk-react";
+    import { useMutation, useQueryClient } from "@tanstack/react-query";
+    import { toast } from "react-toastify";
+    import axios from "axios";
 
-const Comment = () => {
+    const Comment = ({ comment, postId }) => {
+    const { user } = useUser();
+    const { getToken } = useAuth();
+    const role = user?.publicMetadata?.role;
+
+    const queryClient = useQueryClient();
+
+    const mutation = useMutation({
+        mutationFn: async () => {
+        const token = await getToken();
+        return axios.delete(
+            `${import.meta.env.VITE_API_URL}/comments/${comment._id}`,
+            {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+            }
+        );
+        },
+        onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["comments", postId] });
+        toast.success("Comment deleted successfully");
+        },
+        onError: (error) => {
+        toast.error(error.response.data);
+        },
+    });
+
     return (
         <div className="p-4 bg-slate-50 rounded-xl mb-8">
         <div className="flex items-center gap-4">
-            
+            {comment.user.img && (
             <Image
-                src="userImg.jpeg"
+                src={comment.user.img}
                 className="w-10 h-10 rounded-full object-cover"
                 w="40"
             />
-            
-            <span className="font-medium">Johny Depp </span>
+            )}
+            <span className="font-medium">{comment.user.username}</span>
             <span className="text-sm text-gray-500">
-                2 days ago
+            {format(comment.createdAt)}
             </span>
-            
+            {user &&
+            (comment.user.username === user.username || role === "admin") && (
                 <span
-                className="text-xs text-red-300 hover:text-red-500 cursor-pointer"            >
+                className="text-xs text-red-300 hover:text-red-500 cursor-pointer"
+                onClick={() => mutation.mutate()}
+                >
                 delete
+                {mutation.isPending && <span>(in progress)</span>}
                 </span>
-            
+            )}
         </div>
         <div className="mt-4">
-            <p>I watched the whole video without skipping a single second, except for the sponsor part, and it’s a really insightful video. 🙌🙌 Please drop something like this once a week. As you said, if you watch till the end, take a moment to reflect on the entire video and what you’ve learned. Also, the last part about thinking how our ancestors paid attention to the things that truly mattered thousands of years ago really resonated with me. It’s a thought-provoking perspective.</p>
+            <p>{comment.desc}</p>
         </div>
         </div>
     );
-};
+    };
 
-export default Comment
+    export default Comment;
