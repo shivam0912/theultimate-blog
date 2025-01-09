@@ -42,7 +42,7 @@ app.use((error,req,res,next)=>{
     })
 })
 
-app.listen(3000,()=>{
+app.listen(env.process.PORT,()=>{
     connectDB();
-    console.log("Server is running");
+    //console.log("Server is running");
 })
