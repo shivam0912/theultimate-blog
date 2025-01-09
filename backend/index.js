@@ -45,7 +45,7 @@ app.get('/', (req, res) => {
     res.send('API is running...');
 });
 
-app.listen(env.process.PORT,()=>{
+app.listen(process.env.PORT,()=>{
     connectDB();
-    //console.log("Server is running");
+    console.log("Server is running");
 })
