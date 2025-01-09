@@ -1,11 +1,16 @@
-    {
-        "version": 2,
-        "public": "dist",
-        "rewrites": [
-        {
-            "source": "/(.*)",
-            "destination": "/index.html"
-        }
-        ]
-    }
-    
+{
+    "version": 2,
+    "builds": [
+      {
+        "src": "frontend/dist/**",
+        "use": "@vercel/static"
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "/(.*)",
+        "destination": "/frontend/dist/index.html"
+      }
+    ]
+  }
+  
