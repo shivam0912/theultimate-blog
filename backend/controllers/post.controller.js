@@ -2,12 +2,13 @@ import ImageKit from "imagekit";
 import Post from "../models/post.model.js";
 import User from "../models/user.model.js";
 
-// Initialize ImageKit
+
 const imagekit = new ImageKit({
     urlEndpoint: process.env.IK_URL_ENDPOINT,
     publicKey: process.env.IK_PUBLIC_KEY,
     privateKey: process.env.IK_PRIVATE_KEY,
 });
+
 export const getPosts = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 2;

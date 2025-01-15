@@ -5,26 +5,31 @@ dotenv.config();
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
-const connectDB = async () => {
-    if (mongoose.connections[0].readyState) {
-        console.log("Using existing database connection");
-        return;
-    }
+// Global variable to track database connection status
+let isConnected = null;
 
-    try {
-        await mongoose.connect(DATABASE_URL, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-            maxPoolSize: 10, // Set the max pool size
-            minPoolSize: 2, // Set the min pool size
-            socketTimeoutMS: 30000, // Set socket timeout
-            connectTimeoutMS: 30000, // Set connection timeout
-        });
-        console.log("Connected to database");
-    } catch (err) {
-        console.log("Database connection error:", err);
-        process.exit(1); 
-    }
+const connectDB = async () => {
+  if (isConnected) {
+    console.log("Using existing database connection");
+    return;
+  }
+
+  try {
+    const db = await mongoose.connect(DATABASE_URL, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      maxPoolSize: 10, // Maximum number of connections in the pool
+      minPoolSize: 2, // Minimum number of connections in the pool
+      socketTimeoutMS: 30000, // Time in milliseconds before a socket is closed
+      connectTimeoutMS: 30000, // Time in milliseconds to establish a connection
+    });
+
+    isConnected = db.connections[0].readyState;
+    console.log("Connected to database");
+  } catch (err) {
+    console.error("Database connection error:", err);
+    process.exit(1); // Exit the process if the connection fails
+  }
 };
 
 export default connectDB;
