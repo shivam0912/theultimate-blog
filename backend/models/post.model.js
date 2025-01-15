@@ -14,13 +14,12 @@ const postSchema = new Schema(
         title: {
             type: String,
             required: true,
-            index: true,
         },
         slug: {
             type: String,
             required: true,
             unique: true,
-            index: true,
+            index: true, // Index for slug field
         },
         desc: {
             type: String,
@@ -28,7 +27,7 @@ const postSchema = new Schema(
         category: {
             type: String,
             default: "general",
-            index: true,
+            index: true, // Index for category field
         },
         content: {
             type: String,

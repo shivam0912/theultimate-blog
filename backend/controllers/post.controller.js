@@ -8,49 +8,87 @@ const imagekit = new ImageKit({
     publicKey: process.env.IK_PUBLIC_KEY,
     privateKey: process.env.IK_PRIVATE_KEY,
 });
-
 export const getPosts = async (req, res) => {
-    try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 2;
 
-        const query = {};
-        const { cat, author, search, sort, featured } = req.query;
+    const query = {};
 
-        if (cat) query.category = cat;
-        if (search) query.title = { $regex: search, $options: "i" };
-        if (featured) query.isFeatured = true;
+    console.log(req.query);
 
-        if (author) {
-            const user = await User.findOne({ username: author }).select("_id");
-            if (!user) return res.status(404).json("No posts found for the author.");
-            query.user = user._id;
-        }
+    const cat = req.query.cat;
+    const author = req.query.author;
+    const searchQuery = req.query.search;
+    const sortQuery = req.query.sort;
+    const featured = req.query.featured;
 
-        let sortObj = { createdAt: -1 };
-        if (sort) {
-            sortObj = {
-                newest: { createdAt: -1 },
-                oldest: { createdAt: 1 },
-                popular: { visit: -1 },
-                trending: { visit: -1, createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
-            }[sort] || sortObj;
-        }
-
-        const posts = await Post.find(query)
-            .populate("user", "username")
-            .sort(sortObj)
-            .skip((page - 1) * limit)
-            .limit(limit);
-
-        const totalPosts = await Post.countDocuments(query);
-        const hasMore = page * limit < totalPosts;
-
-        res.status(200).json({ posts, hasMore });
-    } catch (error) {
-        console.error("Error in getPosts:", error.message);
-        res.status(500).json({ error: "Internal server error" });
+    if (cat) {
+        query.category = cat;
     }
+
+    if (searchQuery) {
+        query.title = { $regex: searchQuery, $options: "i" };
+    }
+
+    if (author) {
+        const user = await User.findOne({ username: author }).select("_id");
+
+        if (!user) {
+            return res.status(404).json("No post found!");
+        }
+
+        query.user = user._id;
+    }
+
+    let sortObj = { createdAt: -1 };
+
+    if (sortQuery) {
+        switch (sortQuery) {
+            case "newest":
+                sortObj = { createdAt: -1 };
+                break;
+            case "oldest":
+                sortObj = { createdAt: 1 };
+                break;
+            case "popular":
+                sortObj = { visit: -1 };
+                break;
+            case "trending":
+                sortObj = { visit: -1 };
+                query.createdAt = {
+                    $gte: new Date(new Date().getTime() - 7 * 24 * 60 * 60 * 1000),
+                };
+                break;
+            default:
+                break;
+        }
+    }
+
+    if (featured) {
+        query.isFeatured = true;
+    }
+
+    // Log query execution plan
+    const explainResult = await Post.find(query)
+        .populate("user", "username")
+        .sort(sortObj)
+        .limit(limit)
+        .skip((page - 1) * limit)
+        .explain("executionStats");
+
+    console.log("Query Execution Plan:", explainResult);
+
+    // Fetch posts after checking query performance
+    const posts = await Post.find(query)
+        .populate("user", "username")
+        .sort(sortObj)
+        .limit(limit)
+        .skip((page - 1) * limit);
+
+    const totalPosts = await Post.countDocuments();
+    const hasMore = page * limit < totalPosts;
+
+    res.status(200).json({ posts, hasMore });
 };
 
 export const getPost = async (req, res) => {
