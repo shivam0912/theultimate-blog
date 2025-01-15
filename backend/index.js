@@ -26,6 +26,7 @@ app.use(clerkMiddleware());
 app.use(express.json());
 
 app.use("/webhooks", webhookRouter);
+
 app.use("/users", userRouter);
 app.use("/posts", postRouter);
 app.use("/comments", commentRouter);

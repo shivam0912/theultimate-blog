@@ -3,36 +3,36 @@ import Post from "../models/post.model.js";
 import User from "../models/user.model.js";
 
     export const getPosts = async (req, res) => {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 2;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 2;
 
-    const query = {};
+        const query = {};
 
-    console.log(req.query);
+        console.log(req.query);
 
-    const cat = req.query.cat;
-    const author = req.query.author;
-    const searchQuery = req.query.search;
-    const sortQuery = req.query.sort;
-    const featured = req.query.featured;
+        const cat = req.query.cat;
+        const author = req.query.author;
+        const searchQuery = req.query.search;
+        const sortQuery = req.query.sort;
+        const featured = req.query.featured;
 
-    if (cat) {
-        query.category = cat;
-    }
-
-    if (searchQuery) {
-        query.title = { $regex: searchQuery, $options: "i" };
-    }
- 
-    if (author) {
-        const user = await User.findOne({ username: author }).select("_id");
-
-        if (!user) {
-        return res.status(404).json("No post found!");
+        if (cat) {
+            query.category = cat;
         }
 
-        query.user = user._id;
-    }
+        if (searchQuery) {
+            query.title = { $regex: searchQuery, $options: "i" };
+        }
+    
+        if (author) {
+            const user = await User.findOne({ username: author }).select("_id");
+
+            if (!user) {
+            return res.status(404).json("No post found!");
+            }
+
+            query.user = user._id;
+        }
 
     let sortObj = { createdAt: -1 };
 
@@ -177,9 +177,9 @@ import User from "../models/user.model.js";
     };
 
     const imagekit = new ImageKit({
-    urlEndpoint: process.env.IK_URL_ENDPOINT,
-    publicKey: process.env.IK_PUBLIC_KEY,
-    privateKey: process.env.IK_PRIVATE_KEY,
+        urlEndpoint: process.env.IK_URL_ENDPOINT,
+        publicKey: process.env.IK_PUBLIC_KEY,
+        privateKey: process.env.IK_PRIVATE_KEY,
     });
 
     export const uploadAuth = async (req, res) => {
