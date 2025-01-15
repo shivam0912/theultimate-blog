@@ -2,187 +2,136 @@ import ImageKit from "imagekit";
 import Post from "../models/post.model.js";
 import User from "../models/user.model.js";
 
-    export const getPosts = async (req, res) => {
+// Initialize ImageKit
+const imagekit = new ImageKit({
+    urlEndpoint: process.env.IK_URL_ENDPOINT,
+    publicKey: process.env.IK_PUBLIC_KEY,
+    privateKey: process.env.IK_PRIVATE_KEY,
+});
+
+export const getPosts = async (req, res) => {
+    try {
         const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 2;
+        const limit = parseInt(req.query.limit) || 10;
 
         const query = {};
+        const { cat, author, search, sort, featured } = req.query;
 
-        console.log(req.query);
+        if (cat) query.category = cat;
+        if (search) query.title = { $regex: search, $options: "i" };
+        if (featured) query.isFeatured = true;
 
-        const cat = req.query.cat;
-        const author = req.query.author;
-        const searchQuery = req.query.search;
-        const sortQuery = req.query.sort;
-        const featured = req.query.featured;
-
-        if (cat) {
-            query.category = cat;
-        }
-
-        if (searchQuery) {
-            query.title = { $regex: searchQuery, $options: "i" };
-        }
-    
         if (author) {
             const user = await User.findOne({ username: author }).select("_id");
-
-            if (!user) {
-            return res.status(404).json("No post found!");
-            }
-
+            if (!user) return res.status(404).json("No posts found for the author.");
             query.user = user._id;
         }
 
-    let sortObj = { createdAt: -1 };
-
-    if (sortQuery) {
-        switch (sortQuery) {
-        case "newest":
-            sortObj = { createdAt: -1 };
-            break;
-        case "oldest":
-            sortObj = { createdAt: 1 };
-            break;
-        case "popular":
-            sortObj = { visit: -1 };
-            break;
-        case "trending":
-            sortObj = { visit: -1 };
-            query.createdAt = {
-            $gte: new Date(new Date().getTime() - 7 * 24 * 60 * 60 * 1000),
-            };
-            break;
-        default:
-            break;
+        let sortObj = { createdAt: -1 };
+        if (sort) {
+            sortObj = {
+                newest: { createdAt: -1 },
+                oldest: { createdAt: 1 },
+                popular: { visit: -1 },
+                trending: { visit: -1, createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
+            }[sort] || sortObj;
         }
+
+        const posts = await Post.find(query)
+            .populate("user", "username")
+            .sort(sortObj)
+            .skip((page - 1) * limit)
+            .limit(limit);
+
+        const totalPosts = await Post.countDocuments(query);
+        const hasMore = page * limit < totalPosts;
+
+        res.status(200).json({ posts, hasMore });
+    } catch (error) {
+        console.error("Error in getPosts:", error.message);
+        res.status(500).json({ error: "Internal server error" });
     }
+};
 
-    if (featured) {
-        query.isFeatured = true;
+export const getPost = async (req, res) => {
+    try {
+        const post = await Post.findOne({ slug: req.params.slug }).populate("user", "username img");
+        if (!post) return res.status(404).json({ error: "Post not found" });
+        res.status(200).json(post);
+    } catch (error) {
+        console.error("Error in getPost:", error.message);
+        res.status(500).json({ error: "Internal server error" });
     }
+};
 
-    const posts = await Post.find(query)
-        .populate("user", "username")
-        .sort(sortObj)
-        .limit(limit)
-        .skip((page - 1) * limit);
+export const createPost = async (req, res) => {
+    try {
+        const { userId } = req.auth;
+        if (!userId) return res.status(401).json("Not authenticated");
 
-    const totalPosts = await Post.countDocuments();
-    const hasMore = page * limit < totalPosts;
+        const user = await User.findOne({ clerkUserId: userId });
+        if (!user) return res.status(404).json("User not found");
 
-    res.status(200).json({ posts, hasMore });
-    };
+        let slug = req.body.title.toLowerCase().replace(/ /g, "-");
+        while (await Post.findOne({ slug })) slug += `-${Math.random().toString(36).substr(2, 5)}`;
 
-    export const getPost = async (req, res) => {
-    const post = await Post.findOne({ slug: req.params.slug }).populate(
-        "user",
-        "username img"
-    );
-    res.status(200).json(post);
-    };
+        const newPost = new Post({ user: user._id, slug, ...req.body });
+        const post = await newPost.save();
 
-    export const createPost = async (req, res) => {
-    const clerkUserId = req.auth.userId;
-
-    console.log(req.headers);
-
-    if (!clerkUserId) {
-        return res.status(401).json("Not authenticated!");
+        res.status(201).json(post);
+    } catch (error) {
+        console.error("Error in createPost:", error.message);
+        res.status(500).json({ error: "Internal server error" });
     }
+};
 
-    const user = await User.findOne({ clerkUserId });
+export const deletePost = async (req, res) => {
+    try {
+        const { userId } = req.auth;
+        if (!userId) return res.status(401).json("Not authenticated");
 
-    if (!user) {
-        return res.status(404).json("User not found!");
+        const role = req.auth.sessionClaims?.metadata?.role || "user";
+        const post = await Post.findById(req.params.id);
+
+        if (role !== "admin" && (!post || post.user.toString() !== req.auth.userId)) {
+            return res.status(403).json("You can delete only your posts!");
+        }
+
+        await post.remove();
+        res.status(200).json("Post has been deleted");
+    } catch (error) {
+        console.error("Error in deletePost:", error.message);
+        res.status(500).json({ error: "Internal server error" });
     }
+};
 
-    let slug = req.body.title.replace(/ /g, "-").toLowerCase();
+export const featurePost = async (req, res) => {
+    try {
+        const { userId } = req.auth;
+        if (!userId) return res.status(401).json("Not authenticated");
 
-    let existingPost = await Post.findOne({ slug });
+        const role = req.auth.sessionClaims?.metadata?.role || "user";
+        if (role !== "admin") return res.status(403).json("You cannot feature posts!");
 
-    let counter = 2;
+        const post = await Post.findById(req.body.postId);
+        if (!post) return res.status(404).json("Post not found");
 
-    while (existingPost) {
-        slug = `${slug}-${counter}`;
-        existingPost = await Post.findOne({ slug });
-        counter++;
+        post.isFeatured = !post.isFeatured;
+        await post.save();
+
+        res.status(200).json(post);
+    } catch (error) {
+        console.error("Error in featurePost:", error.message);
+        res.status(500).json({ error: "Internal server error" });
     }
+};
 
-    const newPost = new Post({ user: user._id, slug, ...req.body });
-
-    const post = await newPost.save();
-    res.status(200).json(post);
-    };
-
-    export const deletePost = async (req, res) => {
-    const clerkUserId = req.auth.userId;
-
-    if (!clerkUserId) {
-        return res.status(401).json("Not authenticated!");
+export const uploadAuth = async (req, res) => {
+    try {
+        const authParams = imagekit.getAuthenticationParameters();
+        res.status(200).json(authParams);
+    } catch (error) {
+        console.error("Error in uploadAuth:", error.message);
+        res.status(500).json({ error: "Internal server error" });
     }
-
-    const role = req.auth.sessionClaims?.metadata?.role || "user";
-
-    if (role === "admin") {
-        await Post.findByIdAndDelete(req.params.id);
-        return res.status(200).json("Post has been deleted");
-    }
-
-    const user = await User.findOne({ clerkUserId });
-
-    const deletedPost = await Post.findOneAndDelete({
-        _id: req.params.id,
-        user: user._id,
-    });
-
-    if (!deletedPost) {
-        return res.status(403).json("You can delete only your posts!");
-    }
-
-    res.status(200).json("Post has been deleted");
-    };
-
-    export const featurePost = async (req, res) => {
-    const clerkUserId = req.auth.userId;
-    const postId = req.body.postId;
-
-    if (!clerkUserId) {
-        return res.status(401).json("Not authenticated!");
-    }
-
-    const role = req.auth.sessionClaims?.metadata?.role || "user";
-
-    if (role !== "admin") {
-        return res.status(403).json("You cannot feature posts!");
-    }
-
-    const post = await Post.findById(postId);
-
-    if (!post) {
-        return res.status(404).json("Post not found!");
-    }
-
-    const isFeatured = post.isFeatured;
-
-    const updatedPost = await Post.findByIdAndUpdate(
-        postId,
-        {
-        isFeatured: !isFeatured,
-        },
-        { new: true }
-    );
-
-    res.status(200).json(updatedPost);
-    };
-
-    const imagekit = new ImageKit({
-        urlEndpoint: process.env.IK_URL_ENDPOINT,
-        publicKey: process.env.IK_PUBLIC_KEY,
-        privateKey: process.env.IK_PRIVATE_KEY,
-    });
-
-    export const uploadAuth = async (req, res) => {
-    const result = imagekit.getAuthenticationParameters();
-    res.send(result);
-    };
+};

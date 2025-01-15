@@ -4,43 +4,46 @@ import mongoose from "mongoose";
 const postSchema = new Schema(
     {
         user: {
-        type: Schema.Types.ObjectId,
-        ref: "User",
-        required: true,
+            type: Schema.Types.ObjectId,
+            ref: "User",
+            required: true,
         },
         img: {
-        type: String,
+            type: String,
         },
         title: {
-        type: String,
-        required: true,
+            type: String,
+            required: true,
+            index: true,
         },
         slug: {
-        type: String,
-        required: true,
-        unique: true,
+            type: String,
+            required: true,
+            unique: true,
+            index: true,
         },
         desc: {
-        type: String,
+            type: String,
         },
         category: {
-        type: String,
-        default: "general",
+            type: String,
+            default: "general",
+            index: true,
         },
         content: {
-        type: String,
-        required: true,
+            type: String,
+            required: true,
         },
         isFeatured: {
-        type: Boolean,
-        default: false,
+            type: Boolean,
+            default: false,
         },
         visit: {
-        type: Number,
-        default: 0,
+            type: Number,
+            default: 0,
         },
     },
     { timestamps: true }
-    );
+);
 
 export default mongoose.model("Post", postSchema);
