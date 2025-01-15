@@ -4,7 +4,7 @@ import './index.css'
 import {createBrowserRouter,RouterProvider} from "react-router-dom";
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query'
 
-import HomePage from './routes/Homepage.jsx';
+import HomePage from './routes/HomePage.jsx';
 import PostListPage from './routes/PostListPage.jsx';
 import LoginPage from './routes/LoginPage.jsx';
 import RegisterPage from './routes/RegisterPage.jsx'
